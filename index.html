@@ -18,7 +18,13 @@
         <p>ระบบคาดการณ์ความเสี่ยงการหลุดออกจากระบบ และจำลองผลกระทบนโยบาย</p>
       </div>
     </div>
-    <button id="healthBtnTop" class="btn btn-outline">Check API Health</button>
+    <div class="top-actions">
+      <div class="lang-switch" role="group" aria-label="Language switch">
+        <button id="langTh" class="btn btn-chip active">ไทย</button>
+        <button id="langEn" class="btn btn-chip">EN</button>
+      </div>
+      <button id="healthBtnTop" class="btn btn-outline" data-i18n="checkApiHealth">Check API Health</button>
+    </div>
   </header>
 
   <main class="container">
@@ -28,6 +34,7 @@
         <div><strong>Model Status:</strong> <span id="modelStatus" class="pill neutral">-</span></div>
         <div><strong>Last Check:</strong> <span id="lastCheck">-</span></div>
       </div>
+      <div id="formAlert" class="form-alert hidden"></div>
       <div class="api-row">
         <label for="apiBase">Render API URL</label>
         <div class="api-input-wrap">
@@ -71,6 +78,10 @@
             <label><input type="checkbox" id="policy_remedial" checked /> Remedial Program</label>
           </div>
         </div>
+        <div class="subcard">
+          <label class="consent-row"><input type="checkbox" id="consent_truthful" /> <span data-i18n="consentText">ข้าพเจ้ารับรองว่าข้อมูลเป็นข้อมูลจริงและอยู่ในช่วงที่สมเหตุสมผล</span></label>
+          <small class="muted-note" data-i18n="consentNote">หมายเหตุ: ระบบไม่สามารถพิสูจน์ความจริงของข้อมูลได้ทั้งหมด แต่จะตรวจสอบช่วงข้อมูลและความสมเหตุสมผลเบื้องต้น</small>
+        </div>
         <div class="action-row">
           <button class="btn btn-primary" id="btnDropout">Predict Dropout</button>
           <button class="btn btn-secondary" id="btnScore">Predict Score</button>
@@ -106,7 +117,12 @@
               <div><dt>Risk ก่อน</dt><dd id="polRiskBefore">-</dd></div>
               <div><dt>Risk หลัง</dt><dd id="polRiskAfter">-</dd></div>
               <div><dt>Risk Change</dt><dd id="polRiskChange">-</dd></div>
+              <div><dt>Reading Before</dt><dd id="polReadingBefore">-</dd></div>
+              <div><dt>Reading After</dt><dd id="polReadingAfter">-</dd></div>
               <div><dt>Reading Change</dt><dd id="polReadingChange">-</dd></div>
+              <div><dt>Math Before</dt><dd id="polMathBefore">-</dd></div>
+              <div><dt>Math After</dt><dd id="polMathAfter">-</dd></div>
+              <div><dt>Math Change</dt><dd id="polMathChange">-</dd></div>
               <div><dt>Policies Applied</dt><dd id="polApplied">-</dd></div>
             </dl>
           </article>
