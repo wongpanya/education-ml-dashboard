@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Education Policy ML Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <img src="up_logo.png" alt="University logo" class="brand-logo" />
+      <div>
+        <h1>Education Policy ML Dashboard</h1>
+        <p>ระบบคาดการณ์ความเสี่ยงการหลุดออกจากระบบ และจำลองผลกระทบนโยบาย</p>
+      </div>
+    </div>
+    <button id="healthBtnTop" class="btn btn-outline">Check API Health</button>
+  </header>
+
+  <main class="container">
+    <section class="status-card">
+      <div class="status-grid">
+        <div><strong>API Status:</strong> <span id="apiStatus" class="pill neutral">ยังไม่ตรวจสอบ</span></div>
+        <div><strong>Model Status:</strong> <span id="modelStatus" class="pill neutral">-</span></div>
+        <div><strong>Last Check:</strong> <span id="lastCheck">-</span></div>
+      </div>
+      <div class="api-row">
+        <label for="apiBase">Render API URL</label>
+        <div class="api-input-wrap">
+          <input id="apiBase" type="url" value="https://education-model-vdbp.onrender.com" />
+          <button id="healthBtn" class="btn btn-secondary">Refresh</button>
+        </div>
+        <small>ตัวอย่าง: https://education-model-vdbp.onrender.com</small>
+      </div>
+    </section>
+
+    <section class="layout-grid">
+      <section class="panel">
+        <h2>ข้อมูลนักเรียน</h2>
+        <div class="subcard">
+          <h3>ข้อมูลทั่วไป</h3>
+          <div class="form-grid two-col">
+            <div class="field"><label for="student_id">Student ID</label><input id="student_id" value="S001" /></div>
+            <div class="field"><label for="sex">Sex</label><select id="sex"><option value="F" selected>Female (F)</option><option value="M">Male (M)</option></select></div>
+            <div class="field"><label for="age">Age</label><input id="age" type="number" value="15" /></div>
+            <div class="field"><label for="grade">Grade</label><input id="grade" type="number" value="9" /></div>
+            <div class="field"><label for="academic_year">Academic Year</label><input id="academic_year" type="number" value="2566" /></div>
+          </div>
+        </div>
+        <div class="subcard">
+          <h3>ข้อมูลเศรษฐกิจสังคมและการเรียน</h3>
+          <div class="form-grid two-col">
+            <div class="field"><label for="ses_quintile">SES Quintile</label><input id="ses_quintile" type="number" min="1" max="5" value="1" /></div>
+            <div class="field"><label for="distance_km">Distance to School (km)</label><input id="distance_km" type="number" step="0.1" value="12" /></div>
+            <div class="field"><label for="internet_home">Internet at Home</label><select id="internet_home"><option value="0" selected>No</option><option value="1">Yes</option></select></div>
+            <div class="field"><label for="device_access">Device Access</label><select id="device_access"><option value="0" selected>No</option><option value="1">Yes</option></select></div>
+            <div class="field"><label for="attendance_rate">Attendance Rate (0-1)</label><input id="attendance_rate" type="number" min="0" max="1" step="0.01" value="0.68" /></div>
+            <div class="field"><label for="baseline_skill_reading">Baseline Reading Score</label><input id="baseline_skill_reading" type="number" value="45" /></div>
+            <div class="field"><label for="baseline_skill_math">Baseline Math Score</label><input id="baseline_skill_math" type="number" value="40" /></div>
+          </div>
+        </div>
+        <div class="subcard">
+          <h3>ตั้งค่าการจำลองนโยบาย</h3>
+          <div class="checkbox-grid">
+            <label><input type="checkbox" id="policy_scholarship" checked /> Scholarship</label>
+            <label><input type="checkbox" id="policy_internet" checked /> Internet Support</label>
+            <label><input type="checkbox" id="policy_remedial" checked /> Remedial Program</label>
+          </div>
+        </div>
+        <div class="action-row">
+          <button class="btn btn-primary" id="btnDropout">Predict Dropout</button>
+          <button class="btn btn-secondary" id="btnScore">Predict Score</button>
+          <button class="btn btn-outline" id="btnPolicy">Simulate Policy</button>
+          <button class="btn btn-ghost" id="btnReset">Reset Form</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>ผลลัพธ์</h2>
+        <div class="result-cards">
+          <article class="result-card">
+            <h3>ผลคาดการณ์การหลุดออก</h3>
+            <div class="headline-row"><span id="riskBadge" class="badge badge-muted">ยังไม่มีผล</span><span id="riskPercent" class="big-number">-</span></div>
+            <dl class="stats-list">
+              <div><dt>Dropout Probability</dt><dd id="dropoutProb">-</dd></div>
+              <div><dt>Threshold</dt><dd id="dropoutThreshold">-</dd></div>
+              <div><dt>แนะนำการช่วยเหลือ</dt><dd id="dropoutAction">-</dd></div>
+            </dl>
+          </article>
+          <article class="result-card">
+            <h3>คะแนนที่คาดการณ์</h3>
+            <dl class="stats-list compact">
+              <div><dt>Reading</dt><dd id="scoreReading">-</dd></div>
+              <div><dt>Math</dt><dd id="scoreMath">-</dd></div>
+              <div><dt>Average</dt><dd id="scoreAvg">-</dd></div>
+              <div><dt>Band</dt><dd id="scoreBand">-</dd></div>
+            </dl>
+          </article>
+          <article class="result-card full">
+            <h3>ผลจำลองนโยบาย</h3>
+            <dl class="stats-list compact two-col-stats">
+              <div><dt>Risk ก่อน</dt><dd id="polRiskBefore">-</dd></div>
+              <div><dt>Risk หลัง</dt><dd id="polRiskAfter">-</dd></div>
+              <div><dt>Risk Change</dt><dd id="polRiskChange">-</dd></div>
+              <div><dt>Reading Change</dt><dd id="polReadingChange">-</dd></div>
+              <div><dt>Policies Applied</dt><dd id="polApplied">-</dd></div>
+            </dl>
+          </article>
+        </div>
+        <div class="subcard tabs-card">
+          <div class="tabs"><button class="tab active" data-tab="pretty">Pretty Result</button><button class="tab" data-tab="raw">Raw JSON</button></div>
+          <div id="prettyOutput" class="pretty-output">กดปุ่มด้านซ้ายเพื่อเริ่มคาดการณ์</div>
+          <pre id="rawOutput" class="raw-output hidden">{}</pre>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div>Education Policy ML Dashboard</div>
+    <div>Version 1.0.0</div>
+    <div>Data shown is sample/testing data and is not real.</div>
+  </footer>
+  <script src="script.js"></script>
+</body>
+</html>
