@@ -16,6 +16,10 @@ const I18N = {
     consentText: 'ข้าพเจ้ารับรองว่าข้อมูลเป็นข้อมูลจริงและอยู่ในช่วงที่สมเหตุสมผล',
     consentNote: 'หมายเหตุ: ระบบไม่สามารถพิสูจน์ความจริงของข้อมูลได้ทั้งหมด แต่จะตรวจสอบช่วงข้อมูลและความสมเหตุสมผลเบื้องต้น',
     prettyPrompt: 'กดปุ่มด้านซ้ายเพื่อเริ่มคาดการณ์',
+    batchPrompt: 'เลือกไฟล์ CSV/Excel แล้วกด Analyze File เพื่อสร้างรายงานภาพรวม',
+    batchFail: 'วิเคราะห์ไฟล์ไม่สำเร็จ',
+    batchNoFile: 'กรุณาเลือกไฟล์ก่อน',
+    batchSummaryTitle: 'สรุปรายงานภาพรวม (หลายรายการ)',
     predictDropoutFail: 'คาดการณ์การหลุดออกไม่สำเร็จ', predictScoreFail: 'คาดการณ์คะแนนไม่สำเร็จ', policyFail: 'จำลองนโยบายไม่สำเร็จ',
     riskNone: 'ยังไม่มีผล', high:'สูง', medium:'ปานกลาง', low:'ต่ำ',
     fieldErrors: {
@@ -32,6 +36,10 @@ const I18N = {
     consentText: 'I confirm the entered information is truthful and within realistic ranges.',
     consentNote: 'Note: The system cannot fully verify truthfulness, but it validates ranges and basic plausibility.',
     prettyPrompt: 'Click a button on the left to start prediction',
+    batchPrompt: 'Choose a CSV/Excel file and click Analyze File to generate an overview report',
+    batchFail: 'Batch analysis failed',
+    batchNoFile: 'Please choose a file first',
+    batchSummaryTitle: 'Batch Overview Report',
     predictDropoutFail: 'Predict dropout failed', predictScoreFail: 'Predict score failed', policyFail: 'Policy simulation failed',
     riskNone: 'No result yet', high:'High', medium:'Medium', low:'Low',
     fieldErrors: {
@@ -155,6 +163,89 @@ async function apiCall(path, payload, method='POST'){
   return data;
 }
 
+
+async function apiCallForm(path, formData){
+  const res = await fetch(getApiBase() + path, { method:'POST', body: formData });
+  const txt = await res.text();
+  let data;
+  try { data = JSON.parse(txt); } catch { data = { raw: txt }; }
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${JSON.stringify(data)}`);
+  return data;
+}
+
+function escHtml(v){ return String(v ?? '').replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+
+function renderBatchSummaryCard(data){
+  const s = data?.summary || {};
+  $('batchTotalRows').textContent = s.total_rows ?? '-';
+  $('batchValidRows').textContent = s.valid_rows ?? '-';
+  $('batchInvalidRows').textContent = s.invalid_rows ?? '-';
+  $('batchHighRiskCount').textContent = s.risk_counts?.High ?? '-';
+  $('batchAtRiskRate').textContent = fmtPct(s.at_risk_rate);
+  $('batchAvgRisk').textContent = fmtPct(s.avg_dropout_probability);
+  $('batchAvgReading').textContent = fmtNum(s.avg_predicted_reading);
+  $('batchAvgMath').textContent = fmtNum(s.avg_predicted_math);
+  $('batchAvgScore').textContent = fmtNum(s.avg_predicted_score);
+  $('batchAvgRiskChange').textContent = fmtNum(s.avg_dropout_risk_change);
+  $('batchAvgReadingChange').textContent = fmtNum(s.avg_reading_score_change);
+  $('batchAvgMathChange').textContent = fmtNum(s.avg_math_score_change);
+  $('batchPolicies').textContent = Array.isArray(s.policies_simulated) && s.policies_simulated.length ? s.policies_simulated.join(', ') : '-';
+
+  const rows = Array.isArray(data.top_risk_students) ? data.top_risk_students : [];
+  if (!rows.length) { $('batchTopRiskTable').innerHTML = '<span class="muted-note">-</span>'; return; }
+  const html = [`<table class="batch-table"><thead><tr><th>#</th><th>Student ID</th><th>Risk</th><th>Prob</th><th>Avg Score</th></tr></thead><tbody>`];
+  rows.slice(0,10).forEach((r, i) => {
+    html.push(`<tr><td>${i+1}</td><td>${escHtml(r.student_id)}</td><td>${escHtml(r.risk_level || '-')}</td><td class="num">${escHtml(fmtPct(r.dropout_probability))}</td><td class="num">${escHtml(fmtNum(r.predicted_avg_score))}</td></tr>`);
+  });
+  html.push('</tbody></table>');
+  $('batchTopRiskTable').innerHTML = html.join('');
+}
+
+async function runBatchReport(){
+  if (!$('consent_truthful').checked) {
+    alertBox(t('consentRequired'));
+    setPretty(`<div style="color:#b03860">${t('consentRequired')}</div>`);
+    setRaw({ error: t('consentRequired') });
+    return;
+  }
+  const file = $('batchFile')?.files?.[0];
+  if (!file) {
+    alertBox(t('batchNoFile'));
+    setPretty(`<div style="color:#b03860">${t('batchNoFile')}</div>`);
+    setRaw({ error: t('batchNoFile') });
+    return;
+  }
+  try {
+    alertBox('');
+    setPretty(`<div>${t('batchPrompt')}</div><div>${currentLang==='th'?'กำลังประมวลผลไฟล์...':'Processing file...'}</div>`);
+    const fd = new FormData();
+    fd.append('file', file);
+    fd.append('include_policy', String($('batchIncludePolicy')?.checked ?? true));
+    fd.append('include_cluster', String($('batchIncludeCluster')?.checked ?? false));
+    fd.append('return_records', String($('batchReturnRecords')?.checked ?? true));
+    fd.append('max_rows', '2000');
+    fd.append('policies', JSON.stringify(getPolicies()));
+    const data = await apiCallForm('/batch/report', fd);
+    renderBatchSummaryCard(data);
+    const summary = data.summary || {};
+    const invalidPreview = Array.isArray(data.invalid_rows_preview) && data.invalid_rows_preview.length
+      ? `<div style="margin-top:8px"><strong>Invalid rows preview:</strong> ${data.invalid_rows_preview.slice(0,3).map(r=>`#${r.row_number} ${escHtml(r.student_id||'')} (${escHtml(r.error)})`).join('<br>')}</div>`
+      : '';
+    setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">${t('batchSummaryTitle')}</h4>
+      <div>Total: <strong>${summary.total_rows ?? '-'}</strong> | Valid: <strong>${summary.valid_rows ?? '-'}</strong> | Invalid: <strong>${summary.invalid_rows ?? '-'}</strong></div>
+      <div>At-risk rate: <strong>${fmtPct(summary.at_risk_rate)}</strong> | Avg dropout prob: <strong>${fmtPct(summary.avg_dropout_probability)}</strong></div>
+      <div>Avg Reading / Math / Score: <strong>${fmtNum(summary.avg_predicted_reading)}</strong> / <strong>${fmtNum(summary.avg_predicted_math)}</strong> / <strong>${fmtNum(summary.avg_predicted_score)}</strong></div>
+      <div>Risk counts (H/M/L): <strong>${summary.risk_counts?.High ?? 0}</strong> / <strong>${summary.risk_counts?.Medium ?? 0}</strong> / <strong>${summary.risk_counts?.Low ?? 0}</strong></div>
+      ${summary.avg_dropout_risk_change!==undefined?`<div>Avg policy change (risk/read/math): <strong>${fmtNum(summary.avg_dropout_risk_change)}</strong> / <strong>${fmtNum(summary.avg_reading_score_change)}</strong> / <strong>${fmtNum(summary.avg_math_score_change)}</strong></div>`:''}
+      ${invalidPreview}`);
+    setRaw(data);
+    showTabs('pretty');
+  } catch (e) {
+    setPretty(`<div style="color:#b03860">${t('batchFail')}: ${e.message}</div>`);
+    setRaw({ error: e.message });
+  }
+}
+
 function renderDropoutCard(data){
   const p = Number(data.dropout_probability ?? data.dropout_risk_probability);
   const threshold = Number(data.threshold_used);
@@ -195,6 +286,11 @@ function renderPolicyCard(data){
   $('polRiskAfter').textContent = fmtNum(data.dropout_risk_after);
   $('polRiskChange').textContent = fmtNum(data.dropout_risk_change);
   $('polReadingChange').textContent = fmtNum(data.reading_score_change);
+  if ($('polReadingBefore')) $('polReadingBefore').textContent = fmtNum(data.reading_score_before);
+  if ($('polReadingAfter')) $('polReadingAfter').textContent = fmtNum(data.reading_score_after);
+  if ($('polMathBefore')) $('polMathBefore').textContent = fmtNum(data.math_score_before);
+  if ($('polMathAfter')) $('polMathAfter').textContent = fmtNum(data.math_score_after);
+  if ($('polMathChange')) $('polMathChange').textContent = fmtNum(data.math_score_change);
   $('polApplied').textContent = Array.isArray(data.policies_applied) ? data.policies_applied.join(', ') : '-';
 }
 
@@ -271,7 +367,8 @@ async function simulatePolicy(){
       <div>Policies: <strong>${(data.policies_applied || []).join(', ')}</strong></div>
       <div>Dropout Risk: <strong>${fmtNum(data.dropout_risk_before)}</strong> → <strong>${fmtNum(data.dropout_risk_after)}</strong></div>
       <div>Risk Change: <strong>${fmtNum(data.dropout_risk_change)}</strong></div>
-      <div>Reading Change: <strong>${fmtNum(data.reading_score_change)}</strong></div>`);
+      <div>Reading: <strong>${fmtNum(data.reading_score_before)}</strong> → <strong>${fmtNum(data.reading_score_after)}</strong> (Δ ${fmtNum(data.reading_score_change)})</div>
+      <div>Math: <strong>${fmtNum(data.math_score_before)}</strong> → <strong>${fmtNum(data.math_score_after)}</strong> (Δ ${fmtNum(data.math_score_change)})</div>`);
     setRaw(data);
     showTabs('pretty');
   }, t('policyFail'));
@@ -283,6 +380,10 @@ function resetForm(){
   $('policy_internet').checked = true;
   $('policy_remedial').checked = true;
   $('consent_truthful').checked = false;
+  if ($('batchFile')) $('batchFile').value = '';
+  if ($('batchIncludePolicy')) $('batchIncludePolicy').checked = true;
+  if ($('batchIncludeCluster')) $('batchIncludeCluster').checked = false;
+  if ($('batchReturnRecords')) $('batchReturnRecords').checked = true;
   alertBox('');
   document.querySelectorAll('.invalid').forEach(el=>el.classList.remove('invalid'));
   document.querySelectorAll('.error-text').forEach(el=>el.textContent='');
@@ -296,6 +397,7 @@ $('btnDropout').addEventListener('click', predictDropout);
 $('btnScore').addEventListener('click', predictScore);
 $('btnPolicy').addEventListener('click', simulatePolicy);
 $('btnReset').addEventListener('click', resetForm);
+$('btnBatch')?.addEventListener('click', runBatchReport);
 $('langTh')?.addEventListener('click', () => setLanguage('th'));
 $('langEn')?.addEventListener('click', () => setLanguage('en'));
 Object.keys(rules).forEach(id => $(id)?.addEventListener('input', () => validateField(id, rules[id])));

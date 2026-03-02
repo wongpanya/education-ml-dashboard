@@ -1,0 +1,4 @@
+student_id,sex,age,grade,academic_year,ses_quintile,distance_km,internet_home,device_access,attendance_rate,baseline_skill_reading,baseline_skill_math
+S001,F,15,9,2566,1,12,0,0,0.68,45,40
+S002,M,14,8,2566,3,4,1,1,0.92,72,68
+S003,F,16,10,2566,2,18,1,0,0.77,58,55
