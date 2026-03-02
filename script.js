@@ -1,3 +1,4 @@
+
 const $ = (id) => document.getElementById(id);
 
 const defaults = {
@@ -6,24 +7,132 @@ const defaults = {
   attendance_rate: 0.68, baseline_skill_reading: 45, baseline_skill_math: 40,
 };
 
+const I18N = {
+  th: {
+    checkApiHealth: 'ตรวจสอบ API', connected: 'เชื่อมต่อแล้ว', disconnected: 'เชื่อมต่อไม่ได้', modelsReady: 'โมเดลพร้อมใช้งาน', modelsNotReady: 'โมเดลยังไม่พร้อม',
+    lastCheckPending: 'กำลังตรวจสอบ...', healthOk: 'เชื่อมต่อ API สำเร็จ ✅', healthFail: 'เชื่อมต่อ API ไม่สำเร็จ ❌',
+    consentRequired: 'กรุณาติ๊กยืนยันว่าข้อมูลเป็นข้อมูลจริงก่อนคำนวณ',
+    invalidForm: 'กรุณาแก้ไขข้อมูลที่กรอกไม่ถูกต้องก่อนส่ง',
+    consentText: 'ข้าพเจ้ารับรองว่าข้อมูลเป็นข้อมูลจริงและอยู่ในช่วงที่สมเหตุสมผล',
+    consentNote: 'หมายเหตุ: ระบบไม่สามารถพิสูจน์ความจริงของข้อมูลได้ทั้งหมด แต่จะตรวจสอบช่วงข้อมูลและความสมเหตุสมผลเบื้องต้น',
+    prettyPrompt: 'กดปุ่มด้านซ้ายเพื่อเริ่มคาดการณ์',
+    predictDropoutFail: 'คาดการณ์การหลุดออกไม่สำเร็จ', predictScoreFail: 'คาดการณ์คะแนนไม่สำเร็จ', policyFail: 'จำลองนโยบายไม่สำเร็จ',
+    riskNone: 'ยังไม่มีผล', high:'สูง', medium:'ปานกลาง', low:'ต่ำ',
+    fieldErrors: {
+      student_id: 'กรุณากรอกรหัสนักเรียน', age: 'อายุต้องอยู่ระหว่าง 5–30 ปี', grade: 'ชั้นเรียนต้องอยู่ระหว่าง 1–20', academic_year: 'ปีการศึกษาต้องอยู่ระหว่าง 2555–2585',
+      ses_quintile: 'SES Quintile ต้องเป็นเลข 1–5', distance_km: 'ระยะทางต้องอยู่ระหว่าง 0–300 กม.', attendance_rate: 'Attendance ต้องอยู่ระหว่าง 0–1',
+      baseline_skill_reading: 'คะแนนอ่านต้องอยู่ระหว่าง 0–100', baseline_skill_math: 'คะแนนคณิตต้องอยู่ระหว่าง 0–100'
+    }
+  },
+  en: {
+    checkApiHealth: 'Check API Health', connected: 'Connected', disconnected: 'Disconnected', modelsReady: 'Models Ready', modelsNotReady: 'Models Not Ready',
+    lastCheckPending: 'Checking...', healthOk: 'API connected ✅', healthFail: 'API connection failed ❌',
+    consentRequired: 'Please confirm the data is truthful before running prediction.',
+    invalidForm: 'Please fix invalid fields before submitting.',
+    consentText: 'I confirm the entered information is truthful and within realistic ranges.',
+    consentNote: 'Note: The system cannot fully verify truthfulness, but it validates ranges and basic plausibility.',
+    prettyPrompt: 'Click a button on the left to start prediction',
+    predictDropoutFail: 'Predict dropout failed', predictScoreFail: 'Predict score failed', policyFail: 'Policy simulation failed',
+    riskNone: 'No result yet', high:'High', medium:'Medium', low:'Low',
+    fieldErrors: {
+      student_id: 'Student ID is required', age: 'Age must be between 5 and 30', grade: 'Grade must be between 1 and 20', academic_year: 'Academic year must be between 2555 and 2585',
+      ses_quintile: 'SES Quintile must be 1–5', distance_km: 'Distance must be between 0 and 300 km', attendance_rate: 'Attendance must be between 0 and 1',
+      baseline_skill_reading: 'Reading score must be 0–100', baseline_skill_math: 'Math score must be 0–100'
+    }
+  }
+};
+let currentLang = 'th';
+
+function t(key){ return I18N[currentLang][key] ?? key; }
+function nowText(){ return new Date().toLocaleString(currentLang === 'th' ? 'th-TH' : 'en-US'); }
 function getApiBase(){ return $('apiBase').value.trim().replace(/\/$/, ''); }
-function nowText(){ return new Date().toLocaleString('th-TH'); }
 function setPill(el, type, text){ el.className = 'pill ' + type; el.textContent = text; }
+function fmtPct(v){ return (v===undefined||v===null||isNaN(v)) ? '-' : (Number(v)*100).toFixed(2)+'%'; }
+function fmtNum(v){ return (v===undefined||v===null||isNaN(v)) ? '-' : Number(v).toFixed(2); }
+function setRaw(data){ $('rawOutput').textContent = JSON.stringify(data, null, 2); }
+function setPretty(html){ $('prettyOutput').innerHTML = html; }
+function showTabs(tab){ document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab)); $('prettyOutput').classList.toggle('hidden', tab !== 'pretty'); $('rawOutput').classList.toggle('hidden', tab !== 'raw'); }
+function alertBox(msg, type='error'){ const el=$('formAlert'); if(!msg){el.className='form-alert hidden';el.textContent='';return;} el.className='form-alert'+(type==='info'?' info':''); el.textContent=msg; }
+
+function setLanguage(lang){
+  currentLang = lang;
+  document.documentElement.lang = lang;
+  $('langTh')?.classList.toggle('active', lang==='th');
+  $('langEn')?.classList.toggle('active', lang==='en');
+  document.querySelector('[data-i18n="checkApiHealth"]')?.replaceChildren(document.createTextNode(t('checkApiHealth')));
+  document.querySelectorAll('[data-i18n="consentText"]').forEach(el => el.textContent = t('consentText'));
+  document.querySelectorAll('[data-i18n="consentNote"]').forEach(el => el.textContent = t('consentNote'));
+  if ($('prettyOutput') && $('prettyOutput').textContent.trim()==='') setPretty(t('prettyPrompt'));
+}
+
+function parseNum(id){
+  const v = $(id).value;
+  if (v === '' || v === '-' || v === null) return NaN;
+  return Number(v);
+}
+
+function validateField(id, rule){
+  const field = $(id);
+  if (!field) return null;
+  let err = '';
+  let val = field.value?.trim?.() ?? field.value;
+  if (rule.required && (val === '' || val === '-' || val == null)) err = I18N[currentLang].fieldErrors[id] || 'Required';
+  const numVal = rule.type === 'number' ? Number(val) : null;
+  if (!err && rule.type === 'number') {
+    if (Number.isNaN(numVal)) err = I18N[currentLang].fieldErrors[id] || 'Invalid number';
+    if (!err && rule.min !== undefined && numVal < rule.min) err = I18N[currentLang].fieldErrors[id];
+    if (!err && rule.max !== undefined && numVal > rule.max) err = I18N[currentLang].fieldErrors[id];
+    if (!err && rule.integer && !Number.isInteger(numVal)) err = I18N[currentLang].fieldErrors[id];
+  }
+  field.classList.toggle('invalid', !!err);
+  let small = field.parentElement.querySelector('.error-text');
+  if (!small) {
+    small = document.createElement('div');
+    small.className = 'error-text';
+    field.parentElement.appendChild(small);
+  }
+  small.textContent = err;
+  return err;
+}
+
+const rules = {
+  student_id:{required:true},
+  age:{required:true,type:'number',integer:true,min:5,max:30},
+  grade:{required:true,type:'number',integer:true,min:1,max:20},
+  academic_year:{required:true,type:'number',integer:true,min:2555,max:2585},
+  ses_quintile:{required:true,type:'number',integer:true,min:1,max:5},
+  distance_km:{required:true,type:'number',min:0,max:300},
+  attendance_rate:{required:true,type:'number',min:0,max:1},
+  baseline_skill_reading:{required:true,type:'number',min:0,max:100},
+  baseline_skill_math:{required:true,type:'number',min:0,max:100},
+};
+
+function validateForm(showAlert=true){
+  let errors = [];
+  for (const [id,rule] of Object.entries(rules)) {
+    const e = validateField(id, rule);
+    if (e) errors.push(e);
+  }
+  if (!$('consent_truthful').checked) errors.push(t('consentRequired'));
+  if (showAlert) alertBox(errors[0] || '', errors.length ? 'error':'');
+  return { valid: errors.length===0, errors };
+}
 
 function getPayload(){
   return {
-    student_id: $('student_id').value,
-    sex: $('sex').value,
-    age: Number($('age').value),
-    grade: Number($('grade').value),
-    academic_year: Number($('academic_year').value),
-    ses_quintile: Number($('ses_quintile').value),
-    distance_km: Number($('distance_km').value),
+    student_id: $('student_id').value.trim(),
+    sex: $('sex').value, // already M/F
+    age: parseNum('age'),
+    grade: parseNum('grade'),
+    academic_year: parseNum('academic_year'),
+    ses_quintile: parseNum('ses_quintile'),
+    distance_km: parseNum('distance_km'),
     internet_home: Number($('internet_home').value),
     device_access: Number($('device_access').value),
-    attendance_rate: Number($('attendance_rate').value),
-    baseline_skill_reading: Number($('baseline_skill_reading').value),
-    baseline_skill_math: Number($('baseline_skill_math').value),
+    attendance_rate: parseNum('attendance_rate'),
+    baseline_skill_reading: parseNum('baseline_skill_reading'),
+    baseline_skill_math: parseNum('baseline_skill_math'),
+    consent_truthful: true
   };
 }
 
@@ -46,32 +155,33 @@ async function apiCall(path, payload, method='POST'){
   return data;
 }
 
-function fmtPct(v){ return (v===undefined||v===null||isNaN(v)) ? '-' : (Number(v)*100).toFixed(2)+'%'; }
-function fmtNum(v){ return (v===undefined||v===null||isNaN(v)) ? '-' : Number(v).toFixed(2); }
-
-function setRaw(data){ $('rawOutput').textContent = JSON.stringify(data, null, 2); }
-function setPretty(html){ $('prettyOutput').innerHTML = html; }
-
-function showTabs(tab){
-  document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.tab===tab));
-  $('prettyOutput').classList.toggle('hidden', tab !== 'pretty');
-  $('rawOutput').classList.toggle('hidden', tab !== 'raw');
-}
-
 function renderDropoutCard(data){
   const p = Number(data.dropout_probability ?? data.dropout_risk_probability);
+  const threshold = Number(data.threshold_used);
+  const atRisk = (typeof data.at_risk_flag === 'boolean') ? data.at_risk_flag : (Number.isFinite(p) && Number.isFinite(threshold) ? p >= threshold : false);
+  let riskLabel = String(data.risk_level || '').trim();
+  if (!riskLabel) riskLabel = atRisk ? t('high') : t('low');
+
   $('riskPercent').textContent = isNaN(p) ? '-' : `${(p*100).toFixed(2)}%`;
   $('dropoutProb').textContent = fmtPct(p);
   $('dropoutThreshold').textContent = fmtPct(data.threshold_used);
   $('dropoutAction').textContent = data.recommended_action || '-';
 
-  let badgeClass = 'badge-muted', label = data.risk_level || 'N/A';
-  const risk = String(data.risk_level || '').toLowerCase();
-  if (risk.includes('high')) badgeClass = 'badge-high';
-  else if (risk.includes('med')) badgeClass = 'badge-mid';
-  else if (risk.includes('low')) badgeClass = 'badge-low';
+  let badgeClass = 'badge-muted';
+  const lower = riskLabel.toLowerCase();
+  if (atRisk || lower.includes('high')) badgeClass = 'badge-high';
+  else if (lower.includes('med')) badgeClass = 'badge-mid';
+  else if (lower.includes('low')) badgeClass = 'badge-low';
   $('riskBadge').className = `badge ${badgeClass}`;
-  $('riskBadge').textContent = label;
+  $('riskBadge').textContent = riskLabel;
+
+  // warn if backend sends inconsistent values
+  if (Number.isFinite(p) && Number.isFinite(threshold)) {
+    const contradiction = (atRisk === false && lower.includes('high')) || (atRisk === true && lower.includes('low'));
+    if (contradiction) {
+      alertBox(currentLang === 'th' ? 'API ส่งผลลัพธ์ไม่สอดคล้องกัน (risk_level vs threshold) ระบบจะแสดงค่าตาม at_risk_flag/threshold เป็นหลัก' : 'API returned inconsistent values (risk_level vs threshold). UI prioritizes at_risk_flag/threshold.', 'info');
+    }
+  }
 }
 
 function renderScoreCard(data){
@@ -80,7 +190,6 @@ function renderScoreCard(data){
   $('scoreAvg').textContent = fmtNum(data.predicted_avg_score);
   $('scoreBand').textContent = data.performance_band || '-';
 }
-
 function renderPolicyCard(data){
   $('polRiskBefore').textContent = fmtNum(data.dropout_risk_before);
   $('polRiskAfter').textContent = fmtNum(data.dropout_risk_after);
@@ -90,74 +199,82 @@ function renderPolicyCard(data){
 }
 
 async function checkHealth(){
-  $('lastCheck').textContent = 'กำลังตรวจสอบ...';
+  $('lastCheck').textContent = t('lastCheckPending');
   try {
     const data = await apiCall('/health', null, 'GET');
-    setPill($('apiStatus'), 'ok', 'Connected');
+    setPill($('apiStatus'), 'ok', t('connected'));
     const modelsReady = (data.models_ready === undefined) ? true : !!data.models_ready;
-    setPill($('modelStatus'), modelsReady ? 'ok' : 'bad', modelsReady ? 'Models Ready' : 'Not Ready');
+    setPill($('modelStatus'), modelsReady ? 'ok' : 'bad', modelsReady ? t('modelsReady') : t('modelsNotReady'));
     $('lastCheck').textContent = nowText();
-    setPretty(`<div><strong>เชื่อมต่อ API สำเร็จ ✅</strong></div><div>ตรวจสอบล่าสุด: ${$('lastCheck').textContent}</div>`);
+    setPretty(`<div><strong>${t('healthOk')}</strong></div><div>${$('lastCheck').textContent}</div>`);
     setRaw(data);
   } catch (e) {
-    setPill($('apiStatus'), 'bad', 'Disconnected');
+    setPill($('apiStatus'), 'bad', t('disconnected'));
     setPill($('modelStatus'), 'neutral', '-');
     $('lastCheck').textContent = nowText();
-    setPretty(`<div style="color:#b03860"><strong>เชื่อมต่อ API ไม่สำเร็จ ❌</strong></div><div>${e.message}</div>`);
+    setPretty(`<div style="color:#b03860"><strong>${t('healthFail')}</strong></div><div>${e.message}</div>`);
+    setRaw({ error: e.message });
+  }
+}
+
+async function runWithValidation(path, runner, failText){
+  const state = validateForm(true);
+  if (!state.valid) {
+    setPretty(`<div style="color:#b03860">${t('invalidForm')}</div>`);
+    setRaw({ error: state.errors[0] });
+    return;
+  }
+  try {
+    alertBox('');
+    await runner();
+  } catch (e) {
+    setPretty(`<div style="color:#b03860">${failText}: ${e.message}</div>`);
     setRaw({ error: e.message });
   }
 }
 
 async function predictDropout(){
-  try {
+  await runWithValidation('/predict/dropout', async () => {
     const data = await apiCall('/predict/dropout', getPayload());
     renderDropoutCard(data);
-    setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">ผลคาดการณ์การหลุดออก</h4>
+    const p = data.dropout_probability ?? data.dropout_risk_probability;
+    setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">Dropout Prediction</h4>
       <div>Risk Level: <strong>${data.risk_level ?? '-'}</strong></div>
-      <div>Probability: <strong>${fmtPct(data.dropout_probability ?? data.dropout_risk_probability)}</strong></div>
+      <div>Probability: <strong>${fmtPct(p)}</strong></div>
+      <div>Threshold: <strong>${fmtPct(data.threshold_used)}</strong></div>
       <div>Recommended Action: ${data.recommended_action ?? '-'}</div>`);
     setRaw(data);
     showTabs('pretty');
-  } catch (e) {
-    setPretty(`<div style="color:#b03860">Predict dropout ไม่สำเร็จ: ${e.message}</div>`);
-    setRaw({ error: e.message });
-  }
+  }, t('predictDropoutFail'));
 }
 
 async function predictScore(){
-  try {
-    const payload = getPayload();
-    const data = await apiCall('/predict/score', payload);
+  await runWithValidation('/predict/score', async () => {
+    const data = await apiCall('/predict/score', getPayload());
     renderScoreCard(data);
-    setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">ผลคาดการณ์คะแนน</h4>
+    setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">Score Prediction</h4>
       <div>Reading: <strong>${fmtNum(data.predicted_score_reading)}</strong></div>
       <div>Math: <strong>${fmtNum(data.predicted_score_math)}</strong></div>
       <div>Average: <strong>${fmtNum(data.predicted_avg_score)}</strong></div>
       <div>Band: <strong>${data.performance_band ?? '-'}</strong></div>`);
     setRaw(data);
     showTabs('pretty');
-  } catch (e) {
-    setPretty(`<div style="color:#b03860">Predict score ไม่สำเร็จ: ${e.message}</div>`);
-    setRaw({ error: e.message });
-  }
+  }, t('predictScoreFail'));
 }
 
 async function simulatePolicy(){
-  try {
+  await runWithValidation('/simulate/policy', async () => {
     const payload = { ...getPayload(), policies: getPolicies() };
     const data = await apiCall('/simulate/policy', payload);
     renderPolicyCard(data);
-    setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">ผลจำลองนโยบาย</h4>
+    setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">Policy Simulation</h4>
       <div>Policies: <strong>${(data.policies_applied || []).join(', ')}</strong></div>
       <div>Dropout Risk: <strong>${fmtNum(data.dropout_risk_before)}</strong> → <strong>${fmtNum(data.dropout_risk_after)}</strong></div>
       <div>Risk Change: <strong>${fmtNum(data.dropout_risk_change)}</strong></div>
       <div>Reading Change: <strong>${fmtNum(data.reading_score_change)}</strong></div>`);
     setRaw(data);
     showTabs('pretty');
-  } catch (e) {
-    setPretty(`<div style="color:#b03860">Simulate policy ไม่สำเร็จ: ${e.message}</div>`);
-    setRaw({ error: e.message });
-  }
+  }, t('policyFail'));
 }
 
 function resetForm(){
@@ -165,14 +282,26 @@ function resetForm(){
   $('policy_scholarship').checked = true;
   $('policy_internet').checked = true;
   $('policy_remedial').checked = true;
+  $('consent_truthful').checked = false;
+  alertBox('');
+  document.querySelectorAll('.invalid').forEach(el=>el.classList.remove('invalid'));
+  document.querySelectorAll('.error-text').forEach(el=>el.textContent='');
 }
 
-document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => showTabs(btn.dataset.tab)));
+// events
+Array.from(document.querySelectorAll('.tab')).forEach(btn => btn.addEventListener('click', () => showTabs(btn.dataset.tab)));
 $('healthBtn').addEventListener('click', checkHealth);
 $('healthBtnTop').addEventListener('click', checkHealth);
 $('btnDropout').addEventListener('click', predictDropout);
 $('btnScore').addEventListener('click', predictScore);
 $('btnPolicy').addEventListener('click', simulatePolicy);
 $('btnReset').addEventListener('click', resetForm);
+$('langTh')?.addEventListener('click', () => setLanguage('th'));
+$('langEn')?.addEventListener('click', () => setLanguage('en'));
+Object.keys(rules).forEach(id => $(id)?.addEventListener('input', () => validateField(id, rules[id])));
+$('consent_truthful')?.addEventListener('change', () => validateForm(false));
 
+setLanguage('th');
+resetForm();
+setPretty(I18N[currentLang].prettyPrompt);
 checkHealth();
