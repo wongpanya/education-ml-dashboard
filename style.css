@@ -107,3 +107,7 @@ input[type=file]{height:auto;padding:8px;background:#fcfbff}
 .mode-batch .layout-grid > .panel:nth-child(2) .result-cards{display:none}
 .mode-batch .layout-grid > .panel:nth-child(2)::after{content:"Batch mode active — ดูผลลัพธ์ในส่วนล่าง";display:block;margin-top:8px;color:#6f6293;background:#f6f0ff;border:1px dashed #d8c9fb;border-radius:10px;padding:10px 12px;font-weight:600}
 .dimmed-panel{opacity:.96}
+
+
+#batchFile.input{padding:10px;background:#fff}
+.batch-control-card .field-label{display:block;margin-bottom:6px;color:#5e4e87;font-weight:600}

@@ -126,28 +126,80 @@
 
 
 </section>
-</section><section class="panel batch-panel"><div class="batch-panel-head"><h2>ผลลัพธ์การนำเข้าหลายรายการ (Batch Report)</h2><p class="muted-note">ส่วนนี้ใช้สำหรับสรุปภาพรวมหลายรายการและผลจากปุ่ม Analyze File โดยเฉพาะ</p></div><div class="batch-layout-grid"><article class="result-card full" id="batchSummaryCard">
-<h3>สรุปรายงานภาพรวม (Batch)</h3>
-<dl class="stats-list compact two-col-stats">
-<div><dt>Total Rows</dt><dd id="batchTotalRows">-</dd></div>
-<div><dt>Valid Rows</dt><dd id="batchValidRows">-</dd></div>
-<div><dt>Invalid Rows</dt><dd id="batchInvalidRows">-</dd></div>
-<div><dt>High Risk Count</dt><dd id="batchHighRiskCount">-</dd></div>
-<div><dt>At-risk Rate</dt><dd id="batchAtRiskRate">-</dd></div>
-<div><dt>Avg Dropout Prob</dt><dd id="batchAvgRisk">-</dd></div>
-<div><dt>Avg Reading</dt><dd id="batchAvgReading">-</dd></div>
-<div><dt>Avg Reading Change</dt><dd id="batchAvgReadingChange">-</dd></div>
-<div><dt>Policies Simulated</dt><dd id="batchPolicies">-</dd></div>
-</dl>
-<div class="batch-toprisk-wrap">
-<h4 style="margin:12px 0 6px;color:#5b3c9f">Top Risk Students (preview)</h4>
-<div class="batch-table-wrap muted-note" id="batchTopRiskTable">-</div>
-</div>
-</article><div class="subcard tabs-card">
-<div class="tabs"><button class="tab active" data-tab="pretty">Pretty Result</button><button class="tab" data-tab="raw">Raw JSON</button></div>
-<div class="pretty-output" id="prettyOutput">กดปุ่มด้านซ้ายเพื่อเริ่มคาดการณ์</div>
-<pre class="raw-output hidden" id="rawOutput">{}</pre>
-</div></div></section>
+</section><section class="panel batch-panel">
+  <div class="batch-shell">
+    <aside class="batch-control-card">
+      <h3>📋 วิเคราะห์เป็นกลุ่ม (Batch Report)</h3>
+      <label class="field-label" for="batchFile">CSV / Excel File (.csv, .xlsx)</label>
+      <input type="file" id="batchFile" accept=".csv,.xlsx" class="input">
+      <div class="muted-note" style="margin-top:6px">Required columns: student_id, sex, age, grade, academic_year, ses_quintile, distance_km, internet_home, device_access, attendance_rate, baseline_skill_reading, baseline_skill_math</div>
+      <div class="checkbox-grid" style="margin-top:10px;grid-template-columns:1fr;gap:8px">
+        <label class="check-card"><input type="checkbox" id="batchIncludePolicy" checked> <span>Include Policy Simulation</span></label>
+        <label class="check-card"><input type="checkbox" id="batchIncludeCluster"> <span>Include Cluster Assignment</span></label>
+        <label class="check-card"><input type="checkbox" id="batchReturnRecords" checked> <span>Return Detailed Records</span></label>
+      </div>
+      <div class="batch-action-row action-row" style="grid-template-columns:1fr;margin-top:12px">
+        <button class="btn btn-primary" id="btnBatch">Analyze File</button>
+      </div>
+    </aside>
+
+    <section class="batch-summary-card" id="batchSummaryCard">
+      <h3>สรุปรายงานภาพรวม (Batch)</h3>
+      <div class="batch-kpi-row">
+        <div class="kpi-item"><span>Total Rows</span><strong id="batchTotalRows">-</strong></div>
+        <div class="kpi-item"><span>Valid Rows</span><strong id="batchValidRows">-</strong></div>
+        <div class="kpi-item"><span>High Risk Count</span><strong id="batchHighRiskCount">-</strong></div>
+      </div>
+
+      <div class="batch-middle">
+        <div class="batch-chart-box">
+          <div class="chart-title">Risk Distribution</div>
+          <div class="donut-wrap">
+            <svg class="donut" viewBox="0 0 42 42" aria-hidden="true">
+              <circle class="donut-bg" cx="21" cy="21" r="15.9155"></circle>
+              <circle id="donutHigh" class="donut-ring high" cx="21" cy="21" r="15.9155" stroke-dasharray="0 100" stroke-dashoffset="25"></circle>
+              <circle id="donutMed" class="donut-ring med" cx="21" cy="21" r="15.9155" stroke-dasharray="0 100" stroke-dashoffset="25"></circle>
+              <circle id="donutLow" class="donut-ring low" cx="21" cy="21" r="15.9155" stroke-dasharray="0 100" stroke-dashoffset="25"></circle>
+            </svg>
+            <div class="donut-center" id="donutCenterText">-</div>
+            <ul class="chart-legend">
+              <li><span class="swatch high"></span> High <b id="legendHigh">-</b></li>
+              <li><span class="swatch med"></span> Medium <b id="legendMed">-</b></li>
+              <li><span class="swatch low"></span> Low <b id="legendLow">-</b></li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="batch-chart-box">
+          <div class="chart-title">Top Risk Students</div>
+          <div id="batchTopRiskBars" class="toprisk-bars"><span class="muted-note">-</span></div>
+        </div>
+      </div>
+
+      <div class="batch-meta-grid">
+        <div><span>Invalid Rows</span><strong id="batchInvalidRows">-</strong></div>
+        <div><span>At-risk Rate</span><strong id="batchAtRiskRate">-</strong></div>
+        <div><span>Avg Dropout Prob</span><strong id="batchAvgRisk">-</strong></div>
+        <div><span>Avg Reading</span><strong id="batchAvgReading">-</strong></div>
+        <div><span>Policies Simulated</span><strong id="batchPolicies">-</strong></div>
+      </div>
+
+      <div class="batch-toprisk-wrap">
+        <h4>Top Risk Students (preview)</h4>
+        <div class="batch-table-wrap muted-note" id="batchTopRiskTable">-</div>
+      </div>
+    </section>
+
+    <aside class="batch-result-card">
+      <div class="tabs">
+        <button class="tab active" data-tab="pretty">Pretty Result</button>
+        <button class="tab" data-tab="raw">Raw JSON</button>
+      </div>
+      <div class="pretty-output" id="prettyOutput">กดปุ่ม Analyze File เพื่อเริ่มวิเคราะห์ข้อมูลหลายรายการ</div>
+      <pre class="raw-output hidden" id="rawOutput">{}</pre>
+    </aside>
+  </div>
+</section>
 </main>
 <footer class="footer">
 <div>Education Policy ML Dashboard</div>
