@@ -20,6 +20,7 @@ const I18N = {
     batchFail: 'วิเคราะห์ไฟล์ไม่สำเร็จ',
     batchNoFile: 'กรุณาเลือกไฟล์ก่อน',
     batchSummaryTitle: 'สรุปรายงานภาพรวม (หลายรายการ)',
+    prevPage: 'ก่อนหน้า', nextPage: 'ถัดไป', pageInfo: 'หน้า', rowsRange: 'แสดง', ofTotal: 'จาก', recordsWord: 'รายการ',
     predictDropoutFail: 'คาดการณ์การหลุดออกไม่สำเร็จ', predictScoreFail: 'คาดการณ์คะแนนไม่สำเร็จ', policyFail: 'จำลองนโยบายไม่สำเร็จ',
     riskNone: 'ยังไม่มีผล', high:'สูง', medium:'ปานกลาง', low:'ต่ำ',
     fieldErrors: {
@@ -40,6 +41,7 @@ const I18N = {
     batchFail: 'Batch analysis failed',
     batchNoFile: 'Please choose a file first',
     batchSummaryTitle: 'Batch Overview Report',
+    prevPage: 'Previous', nextPage: 'Next', pageInfo: 'Page', rowsRange: 'Showing', ofTotal: 'of', recordsWord: 'records',
     predictDropoutFail: 'Predict dropout failed', predictScoreFail: 'Predict score failed', policyFail: 'Policy simulation failed',
     riskNone: 'No result yet', high:'High', medium:'Medium', low:'Low',
     fieldErrors: {
@@ -52,6 +54,8 @@ const I18N = {
 let currentLang = 'th';
 let currentMode = 'single';
 let lastBatchData = null;
+let batchTablePage = 1;
+const batchTablePageSize = 10;
 
 function t(key){ return I18N[currentLang][key] ?? key; }
 function nowText(){ return new Date().toLocaleString(currentLang === 'th' ? 'th-TH' : 'en-US'); }
@@ -212,7 +216,9 @@ function applyStaticI18n(){
     topRiskPreview: {th:'ตัวอย่างรายชื่อเสี่ยงสูง', en:'Top Risk Students (preview)'},
     prettyTab: {th:'Pretty Result', en:'Pretty Result'},
     rawTab: {th:'Raw JSON', en:'Raw JSON'},
-    downloadCsv: {th:'ดาวน์โหลดรายงาน (CSV)', en:'Download Report (CSV)'}
+    downloadCsv: {th:'ดาวน์โหลดรายงาน (CSV)', en:'Download Report (CSV)'},
+    prevPageBtn: {th:'ก่อนหน้า', en:'Previous'},
+    nextPageBtn: {th:'ถัดไป', en:'Next'}
   };
   document.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.getAttribute('data-i18n');
@@ -258,8 +264,47 @@ function downloadBatchCsv(){
 }
 
 
+
+function updateBatchPagerMeta(total){
+  const totalPages = Math.max(1, Math.ceil((total||0) / batchTablePageSize));
+  if (batchTablePage > totalPages) batchTablePage = totalPages;
+  if (batchTablePage < 1) batchTablePage = 1;
+  const start = total ? ((batchTablePage - 1) * batchTablePageSize) + 1 : 0;
+  const end = total ? Math.min(total, start + batchTablePageSize - 1) : 0;
+  const info = $('batchPageInfo');
+  if (info) info.textContent = `${t('pageInfo')} ${batchTablePage} / ${totalPages}`;
+  const range = $('batchRowsRange');
+  if (range) range.textContent = total ? `${t('rowsRange')} ${start}-${end} ${t('ofTotal')} ${total} ${t('recordsWord')}` : '-';
+  const prev = $('batchPrevPage');
+  const next = $('batchNextPage');
+  if (prev) prev.disabled = batchTablePage <= 1;
+  if (next) next.disabled = batchTablePage >= totalPages;
+}
+
+function renderBatchTopRiskTablePaged(rows){
+  const total = Array.isArray(rows) ? rows.length : 0;
+  if (!total) {
+    $('batchTopRiskTable').innerHTML = '<span class="muted-note">-</span>';
+    updateBatchPagerMeta(0);
+    return;
+  }
+  updateBatchPagerMeta(total);
+  const startIdx = (batchTablePage - 1) * batchTablePageSize;
+  const pageRows = rows.slice(startIdx, startIdx + batchTablePageSize);
+  const tableHead = currentLang==='th'
+    ? '<tr><th>#</th><th>รหัสนักเรียน</th><th>ความเสี่ยง</th><th>ความน่าจะเป็น</th><th>คะแนนเฉลี่ย</th></tr>'
+    : '<tr><th>#</th><th>Student ID</th><th>Risk</th><th>Prob</th><th>Avg Score</th></tr>';
+  const html = [`<table class="batch-table"><thead>${tableHead}</thead><tbody>`];
+  pageRows.forEach((r, i) => {
+    html.push(`<tr><td>${startIdx+i+1}</td><td>${escHtml(r.student_id)}</td><td>${escHtml(r.risk_level || '-')}</td><td class="num">${escHtml(fmtPct(r.dropout_probability))}</td><td class="num">${escHtml(fmtNum(r.predicted_avg_score))}</td></tr>`);
+  });
+  html.push('</tbody></table>');
+  $('batchTopRiskTable').innerHTML = html.join('');
+}
+
 function renderBatchSummaryCard(data){
   lastBatchData = data || null;
+  batchTablePage = 1;
   const s = data?.summary || {};
   $('batchTotalRows').textContent = s.total_rows ?? '-';
   $('batchValidRows').textContent = s.valid_rows ?? '-';
@@ -300,18 +345,10 @@ function renderBatchSummaryCard(data){
 
   const rows = Array.isArray(data.top_risk_students) ? data.top_risk_students : [];
   if (!rows.length) {
-    $('batchTopRiskTable').innerHTML = '<span class="muted-note">-</span>';
     $('batchTopRiskBars').innerHTML = '<span class="muted-note">-</span>';
+    renderBatchTopRiskTablePaged([]);
   } else {
-    const tableHead = currentLang==='th'
-      ? '<tr><th>#</th><th>รหัสนักเรียน</th><th>ความเสี่ยง</th><th>ความน่าจะเป็น</th><th>คะแนนเฉลี่ย</th></tr>'
-      : '<tr><th>#</th><th>Student ID</th><th>Risk</th><th>Prob</th><th>Avg Score</th></tr>';
-    const html = [`<table class="batch-table"><thead>${tableHead}</thead><tbody>`];
-    rows.slice(0,10).forEach((r, i) => {
-      html.push(`<tr><td>${i+1}</td><td>${escHtml(r.student_id)}</td><td>${escHtml(r.risk_level || '-')}</td><td class="num">${escHtml(fmtPct(r.dropout_probability))}</td><td class="num">${escHtml(fmtNum(r.predicted_avg_score))}</td></tr>`);
-    });
-    html.push('</tbody></table>');
-    $('batchTopRiskTable').innerHTML = html.join('');
+    renderBatchTopRiskTablePaged(rows);
     const maxP = Math.max(...rows.slice(0,5).map(r=>Number(r.dropout_probability||0)), 1);
     $('batchTopRiskBars').innerHTML = `<div class="bar-list">${rows.slice(0,5).map(r => {
       const p = Number(r.dropout_probability||0);
@@ -528,6 +565,8 @@ $('btnBatch')?.addEventListener('click', runBatchReport);
 $('btnDownloadCsv')?.addEventListener('click', downloadBatchCsv);
 $('langTh')?.addEventListener('click', () => setLanguage('th'));
 $('langEn')?.addEventListener('click', () => setLanguage('en'));
+$('batchPrevPage')?.addEventListener('click', () => { if (!lastBatchData) return; batchTablePage = Math.max(1, batchTablePage - 1); renderBatchTopRiskTablePaged(lastBatchData.top_risk_students || []); });
+$('batchNextPage')?.addEventListener('click', () => { if (!lastBatchData) return; batchTablePage = batchTablePage + 1; renderBatchTopRiskTablePaged(lastBatchData.top_risk_students || []); });
 Object.keys(rules).forEach(id => $(id)?.addEventListener('input', () => validateField(id, rules[id])));
 $('consent_truthful')?.addEventListener('change', () => validateForm(false));
 
