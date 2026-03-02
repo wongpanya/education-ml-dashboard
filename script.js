@@ -194,12 +194,7 @@ function renderPolicyCard(data){
   $('polRiskBefore').textContent = fmtNum(data.dropout_risk_before);
   $('polRiskAfter').textContent = fmtNum(data.dropout_risk_after);
   $('polRiskChange').textContent = fmtNum(data.dropout_risk_change);
-  if ($('polReadingBefore')) $('polReadingBefore').textContent = fmtNum(data.reading_score_before);
-  if ($('polReadingAfter')) $('polReadingAfter').textContent = fmtNum(data.reading_score_after);
   $('polReadingChange').textContent = fmtNum(data.reading_score_change);
-  if ($('polMathBefore')) $('polMathBefore').textContent = fmtNum(data.math_score_before);
-  if ($('polMathAfter')) $('polMathAfter').textContent = fmtNum(data.math_score_after);
-  if ($('polMathChange')) $('polMathChange').textContent = fmtNum(data.math_score_change);
   $('polApplied').textContent = Array.isArray(data.policies_applied) ? data.policies_applied.join(', ') : '-';
 }
 
@@ -276,10 +271,7 @@ async function simulatePolicy(){
       <div>Policies: <strong>${(data.policies_applied || []).join(', ')}</strong></div>
       <div>Dropout Risk: <strong>${fmtNum(data.dropout_risk_before)}</strong> → <strong>${fmtNum(data.dropout_risk_after)}</strong></div>
       <div>Risk Change: <strong>${fmtNum(data.dropout_risk_change)}</strong></div>
-      <div>Reading: <strong>${fmtNum(data.reading_score_before)}</strong> → <strong>${fmtNum(data.reading_score_after)}</strong></div>
-      <div>Reading Change: <strong>${fmtNum(data.reading_score_change)}</strong></div>
-      <div>Math: <strong>${fmtNum(data.math_score_before)}</strong> → <strong>${fmtNum(data.math_score_after)}</strong></div>
-      <div>Math Change: <strong>${fmtNum(data.math_score_change)}</strong></div>`);
+      <div>Reading Change: <strong>${fmtNum(data.reading_score_change)}</strong></div>`);
     setRaw(data);
     showTabs('pretty');
   }, t('policyFail'));
