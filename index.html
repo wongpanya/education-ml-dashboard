@@ -78,18 +78,6 @@
 </div>
 </div>
 <div class="subcard">
-<h3>นำเข้าข้อมูลหลายรายการ (Batch Report)</h3>
-<div class="form-grid">
-<div class="field"><label for="batchFile">CSV / Excel File (.csv, .xlsx)</label><input accept=".csv,.xlsx,.xls" id="batchFile" type="file"/></div>
-<div class="checkbox-grid batch-options">
-<label><input checked="" id="batchIncludePolicy" type="checkbox"/> Include Policy Simulation</label>
-<label><input id="batchIncludeCluster" type="checkbox"/> Include Cluster Assignment</label>
-<label><input checked="" id="batchReturnRecords" type="checkbox"/> Return Detailed Records</label>
-</div>
-<small class="muted-note">Required columns: student_id, sex, age, grade, academic_year, ses_quintile, distance_km, internet_home, device_access, attendance_rate, baseline_skill_reading, baseline_skill_math</small>
-<div class="batch-action-row"><button class="btn btn-outline" id="btnBatch">Analyze File</button></div></div>
-</div>
-<div class="subcard">
 <label class="consent-row"><input id="consent_truthful" type="checkbox"/> <span data-i18n="consentText">ข้าพเจ้ารับรองว่าข้อมูลเป็นข้อมูลจริงและอยู่ในช่วงที่สมเหตุสมผล</span></label>
 <small class="muted-note" data-i18n="consentNote">หมายเหตุ: ระบบไม่สามารถพิสูจน์ความจริงของข้อมูลได้ทั้งหมด แต่จะตรวจสอบช่วงข้อมูลและความสมเหตุสมผลเบื้องต้น</small>
 </div>
@@ -131,9 +119,6 @@
 <div><dt>Reading Before</dt><dd id="polReadingBefore">-</dd></div>
 <div><dt>Reading After</dt><dd id="polReadingAfter">-</dd></div>
 <div><dt>Reading Change</dt><dd id="polReadingChange">-</dd></div>
-<div><dt>Math Before</dt><dd id="polMathBefore">-</dd></div>
-<div><dt>Math After</dt><dd id="polMathAfter">-</dd></div>
-<div><dt>Math Change</dt><dd id="polMathChange">-</dd></div>
 <div><dt>Policies Applied</dt><dd id="polApplied">-</dd></div>
 </dl>
 </article>
@@ -151,11 +136,7 @@
 <div><dt>At-risk Rate</dt><dd id="batchAtRiskRate">-</dd></div>
 <div><dt>Avg Dropout Prob</dt><dd id="batchAvgRisk">-</dd></div>
 <div><dt>Avg Reading</dt><dd id="batchAvgReading">-</dd></div>
-<div><dt>Avg Math</dt><dd id="batchAvgMath">-</dd></div>
-<div><dt>Avg Score</dt><dd id="batchAvgScore">-</dd></div>
-<div><dt>Avg Risk Change</dt><dd id="batchAvgRiskChange">-</dd></div>
 <div><dt>Avg Reading Change</dt><dd id="batchAvgReadingChange">-</dd></div>
-<div><dt>Avg Math Change</dt><dd id="batchAvgMathChange">-</dd></div>
 <div><dt>Policies Simulated</dt><dd id="batchPolicies">-</dd></div>
 </dl>
 <div class="batch-toprisk-wrap">

@@ -173,32 +173,61 @@ async function apiCallForm(path, formData){
   return data;
 }
 
-function escHtml(v){ return String(v ?? '').replace(/[&<>"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function escHtml(v){ return String(v ?? '').replace(/[&<>\"']/g, (m)=>({ '&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;',"'":'&#39;' }[m])); }
+
+function setMode(mode){
+  document.body.classList.remove('mode-single','mode-batch');
+  document.body.classList.add(mode === 'batch' ? 'mode-batch' : 'mode-single');
+  const singlePanel = document.querySelector('.layout-grid .panel:nth-child(2)');
+  if (singlePanel) singlePanel.classList.toggle('dimmed-panel', mode === 'batch');
+}
 
 function renderBatchSummaryCard(data){
   const s = data?.summary || {};
+  const riskCounts = s.risk_counts || {};
   $('batchTotalRows').textContent = s.total_rows ?? '-';
   $('batchValidRows').textContent = s.valid_rows ?? '-';
   $('batchInvalidRows').textContent = s.invalid_rows ?? '-';
-  $('batchHighRiskCount').textContent = s.risk_counts?.High ?? '-';
+  $('batchHighRiskCount').textContent = riskCounts.High ?? '-';
   $('batchAtRiskRate').textContent = fmtPct(s.at_risk_rate);
   $('batchAvgRisk').textContent = fmtPct(s.avg_dropout_probability);
   $('batchAvgReading').textContent = fmtNum(s.avg_predicted_reading);
-  $('batchAvgMath').textContent = fmtNum(s.avg_predicted_math);
-  $('batchAvgScore').textContent = fmtNum(s.avg_predicted_score);
-  $('batchAvgRiskChange').textContent = fmtNum(s.avg_dropout_risk_change);
-  $('batchAvgReadingChange').textContent = fmtNum(s.avg_reading_score_change);
-  $('batchAvgMathChange').textContent = fmtNum(s.avg_math_score_change);
-  $('batchPolicies').textContent = Array.isArray(s.policies_simulated) && s.policies_simulated.length ? s.policies_simulated.join(', ') : '-';
+  if ($('batchPolicies')) $('batchPolicies').textContent = Array.isArray(s.policies_simulated) && s.policies_simulated.length ? s.policies_simulated.join(', ') : '-';
+
+  const h = Number(riskCounts.High || 0), m = Number(riskCounts.Medium || 0), l = Number(riskCounts.Low || 0);
+  const total = Math.max(1, h + m + l);
+  const hp = (h / total) * 100, mp = (m / total) * 100, lp = (l / total) * 100;
+  const setArc = (id, pct, offset) => {
+    const el = $(id); if (!el) return offset;
+    el.setAttribute('stroke-dasharray', `${pct} ${Math.max(0,100-pct)}`);
+    el.setAttribute('stroke-dashoffset', String(25 - offset));
+    return offset + pct;
+  };
+  let offset = 0; offset = setArc('donutHigh', hp, offset); offset = setArc('donutMed', mp, offset); setArc('donutLow', lp, offset);
+  if ($('donutCenterText')) $('donutCenterText').textContent = `${(s.at_risk_rate!=null?fmtPct(s.at_risk_rate):fmtPct(h/Math.max(1,h+m+l)))}
+At-risk`;
+  if ($('legendHigh')) $('legendHigh').textContent = `${h} (${Math.round(hp)}%)`;
+  if ($('legendMed')) $('legendMed').textContent = `${m} (${Math.round(mp)}%)`;
+  if ($('legendLow')) $('legendLow').textContent = `${l} (${Math.round(lp)}%)`;
 
   const rows = Array.isArray(data.top_risk_students) ? data.top_risk_students : [];
-  if (!rows.length) { $('batchTopRiskTable').innerHTML = '<span class="muted-note">-</span>'; return; }
+  if (!rows.length) {
+    $('batchTopRiskTable').innerHTML = '<span class="muted-note">-</span>';
+    if ($('batchTopRiskBars')) $('batchTopRiskBars').innerHTML = '<span class="muted-note">-</span>';
+    return;
+  }
   const html = [`<table class="batch-table"><thead><tr><th>#</th><th>Student ID</th><th>Risk</th><th>Prob</th><th>Avg Score</th></tr></thead><tbody>`];
   rows.slice(0,10).forEach((r, i) => {
     html.push(`<tr><td>${i+1}</td><td>${escHtml(r.student_id)}</td><td>${escHtml(r.risk_level || '-')}</td><td class="num">${escHtml(fmtPct(r.dropout_probability))}</td><td class="num">${escHtml(fmtNum(r.predicted_avg_score))}</td></tr>`);
   });
   html.push('</tbody></table>');
   $('batchTopRiskTable').innerHTML = html.join('');
+
+  const bars = rows.slice(0,5).map((r)=>{
+    const p = Number(r.dropout_probability||0)*100;
+    return `<div class="risk-bar-row"><div class="name">${escHtml(r.student_id||'-')}</div><div class="bar-track"><div class="bar-fill" style="width:${Math.max(0,Math.min(100,p)).toFixed(1)}%"></div></div><div class="val">${fmtPct(r.dropout_probability)}</div></div>`;
+  });
+  if ($('batchTopRiskBars')) $('batchTopRiskBars').innerHTML = bars.join('');
 }
 
 async function runBatchReport(){
@@ -226,6 +255,7 @@ async function runBatchReport(){
     fd.append('max_rows', '2000');
     fd.append('policies', JSON.stringify(getPolicies()));
     const data = await apiCallForm('/batch/report', fd);
+    setMode('batch');
     renderBatchSummaryCard(data);
     const summary = data.summary || {};
     const invalidPreview = Array.isArray(data.invalid_rows_preview) && data.invalid_rows_preview.length
@@ -234,9 +264,8 @@ async function runBatchReport(){
     setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">${t('batchSummaryTitle')}</h4>
       <div>Total: <strong>${summary.total_rows ?? '-'}</strong> | Valid: <strong>${summary.valid_rows ?? '-'}</strong> | Invalid: <strong>${summary.invalid_rows ?? '-'}</strong></div>
       <div>At-risk rate: <strong>${fmtPct(summary.at_risk_rate)}</strong> | Avg dropout prob: <strong>${fmtPct(summary.avg_dropout_probability)}</strong></div>
-      <div>Avg Reading / Math / Score: <strong>${fmtNum(summary.avg_predicted_reading)}</strong> / <strong>${fmtNum(summary.avg_predicted_math)}</strong> / <strong>${fmtNum(summary.avg_predicted_score)}</strong></div>
+      <div>Avg Reading: <strong>${fmtNum(summary.avg_predicted_reading)}</strong></div>
       <div>Risk counts (H/M/L): <strong>${summary.risk_counts?.High ?? 0}</strong> / <strong>${summary.risk_counts?.Medium ?? 0}</strong> / <strong>${summary.risk_counts?.Low ?? 0}</strong></div>
-      ${summary.avg_dropout_risk_change!==undefined?`<div>Avg policy change (risk/read/math): <strong>${fmtNum(summary.avg_dropout_risk_change)}</strong> / <strong>${fmtNum(summary.avg_reading_score_change)}</strong> / <strong>${fmtNum(summary.avg_math_score_change)}</strong></div>`:''}
       ${invalidPreview}`);
     setRaw(data);
     showTabs('pretty');
@@ -332,6 +361,7 @@ async function runWithValidation(path, runner, failText){
 async function predictDropout(){
   await runWithValidation('/predict/dropout', async () => {
     const data = await apiCall('/predict/dropout', getPayload());
+    setMode('single');
     renderDropoutCard(data);
     const p = data.dropout_probability ?? data.dropout_risk_probability;
     setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">Dropout Prediction</h4>
@@ -347,6 +377,7 @@ async function predictDropout(){
 async function predictScore(){
   await runWithValidation('/predict/score', async () => {
     const data = await apiCall('/predict/score', getPayload());
+    setMode('single');
     renderScoreCard(data);
     setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">Score Prediction</h4>
       <div>Reading: <strong>${fmtNum(data.predicted_score_reading)}</strong></div>
@@ -362,13 +393,14 @@ async function simulatePolicy(){
   await runWithValidation('/simulate/policy', async () => {
     const payload = { ...getPayload(), policies: getPolicies() };
     const data = await apiCall('/simulate/policy', payload);
+    setMode('single');
     renderPolicyCard(data);
     setPretty(`<h4 style="margin:0 0 8px;color:#5b3c9f">Policy Simulation</h4>
       <div>Policies: <strong>${(data.policies_applied || []).join(', ')}</strong></div>
       <div>Dropout Risk: <strong>${fmtNum(data.dropout_risk_before)}</strong> → <strong>${fmtNum(data.dropout_risk_after)}</strong></div>
       <div>Risk Change: <strong>${fmtNum(data.dropout_risk_change)}</strong></div>
       <div>Reading: <strong>${fmtNum(data.reading_score_before)}</strong> → <strong>${fmtNum(data.reading_score_after)}</strong> (Δ ${fmtNum(data.reading_score_change)})</div>
-      <div>Math: <strong>${fmtNum(data.math_score_before)}</strong> → <strong>${fmtNum(data.math_score_after)}</strong> (Δ ${fmtNum(data.math_score_change)})</div>`);
+`);
     setRaw(data);
     showTabs('pretty');
   }, t('policyFail'));
@@ -387,6 +419,7 @@ function resetForm(){
   alertBox('');
   document.querySelectorAll('.invalid').forEach(el=>el.classList.remove('invalid'));
   document.querySelectorAll('.error-text').forEach(el=>el.textContent='');
+  setMode('single');
 }
 
 // events
