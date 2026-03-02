@@ -77,6 +77,7 @@
 <label><input checked="" id="policy_remedial" type="checkbox"/> Remedial Program</label>
 </div>
 </div>
+
 <div class="subcard">
 <label class="consent-row"><input id="consent_truthful" type="checkbox"/> <span data-i18n="consentText">ข้าพเจ้ารับรองว่าข้อมูลเป็นข้อมูลจริงและอยู่ในช่วงที่สมเหตุสมผล</span></label>
 <small class="muted-note" data-i18n="consentNote">หมายเหตุ: ระบบไม่สามารถพิสูจน์ความจริงของข้อมูลได้ทั้งหมด แต่จะตรวจสอบช่วงข้อมูลและความสมเหตุสมผลเบื้องต้น</small>
@@ -89,7 +90,7 @@
 <button class="btn btn-ghost" id="btnReset">Reset Form</button>
 </div>
 </section>
-<section class="panel">
+<section class="panel results-panel" id="singleResultsPanel">
 <h2>ผลลัพธ์</h2>
 <div class="result-cards">
 <article class="result-card">
@@ -119,6 +120,9 @@
 <div><dt>Reading Before</dt><dd id="polReadingBefore">-</dd></div>
 <div><dt>Reading After</dt><dd id="polReadingAfter">-</dd></div>
 <div><dt>Reading Change</dt><dd id="polReadingChange">-</dd></div>
+<div class="optional-math-row"><dt>Math Before</dt><dd id="polMathBefore">-</dd></div>
+<div class="optional-math-row"><dt>Math After</dt><dd id="polMathAfter">-</dd></div>
+<div class="optional-math-row"><dt>Math Change</dt><dd id="polMathChange">-</dd></div>
 <div><dt>Policies Applied</dt><dd id="polApplied">-</dd></div>
 </dl>
 </article>
@@ -126,78 +130,65 @@
 
 
 </section>
-</section><section class="panel batch-panel">
-  <div class="batch-shell">
-    <aside class="batch-control-card">
-      <h3>📋 วิเคราะห์เป็นกลุ่ม (Batch Report)</h3>
-      <label class="field-label" for="batchFile">CSV / Excel File (.csv, .xlsx)</label>
-      <input type="file" id="batchFile" accept=".csv,.xlsx" class="input">
-      <div class="muted-note" style="margin-top:6px">Required columns: student_id, sex, age, grade, academic_year, ses_quintile, distance_km, internet_home, device_access, attendance_rate, baseline_skill_reading, baseline_skill_math</div>
-      <div class="checkbox-grid" style="margin-top:10px;grid-template-columns:1fr;gap:8px">
-        <label class="check-card"><input type="checkbox" id="batchIncludePolicy" checked> <span>Include Policy Simulation</span></label>
-        <label class="check-card"><input type="checkbox" id="batchIncludeCluster"> <span>Include Cluster Assignment</span></label>
-        <label class="check-card"><input type="checkbox" id="batchReturnRecords" checked> <span>Return Detailed Records</span></label>
+</section><section class="panel batch-panel" id="batchPanel">
+  <div class="batch-strip">
+    <div class="batch-strip-col batch-strip-input">
+      <div class="batch-block-title">🗂️ <span data-i18n="batchAnalyzeTitle">วิเคราะห์เป็นกลุ่ม (Batch Report)</span></div>
+      <div class="field">
+        <label for="batchFile">CSV / Excel File (.csv, .xlsx)</label>
+        <input accept=".csv,.xlsx,.xls" id="batchFile" type="file"/>
       </div>
-      <div class="batch-action-row action-row" style="grid-template-columns:1fr;margin-top:12px">
-        <button class="btn btn-primary" id="btnBatch">Analyze File</button>
+      <div class="checkbox-grid batch-options">
+        <label><input checked id="batchIncludePolicy" type="checkbox"/> <span data-i18n="includePolicy">Include Policy Simulation</span></label>
+        <label><input id="batchIncludeCluster" type="checkbox"/> <span data-i18n="includeCluster">Include Cluster Assignment</span></label>
+        <label><input checked id="batchReturnRecords" type="checkbox"/> <span data-i18n="returnDetailed">Return Detailed Records</span></label>
       </div>
-    </aside>
-
-    <section class="batch-summary-card" id="batchSummaryCard">
-      <h3>สรุปรายงานภาพรวม (Batch)</h3>
+      <small class="muted-note" data-i18n="batchRequiredCols">Required columns: student_id, sex, age, grade, academic_year, ses_quintile, distance_km, internet_home, device_access, attendance_rate, baseline_skill_reading, baseline_skill_math</small>
+      <div class="batch-action-row"><button class="btn btn-primary" id="btnBatch"><span data-i18n="analyzeFile">Analyze File</span></button></div>
+    </div>
+    <div class="batch-strip-col batch-strip-summary">
+      <div class="batch-block-title"><span data-i18n="batchSummaryPanelTitle">สรุปรายงานภาพรวม (Batch)</span></div>
       <div class="batch-kpi-row">
-        <div class="kpi-item"><span>Total Rows</span><strong id="batchTotalRows">-</strong></div>
-        <div class="kpi-item"><span>Valid Rows</span><strong id="batchValidRows">-</strong></div>
-        <div class="kpi-item"><span>High Risk Count</span><strong id="batchHighRiskCount">-</strong></div>
+        <div class="batch-kpi"><div class="kpi-label" data-i18n="batchTotalRows">Total Rows</div><div class="kpi-value" id="batchTotalRows">-</div></div>
+        <div class="batch-kpi"><div class="kpi-label" data-i18n="batchValidRows">Valid Rows</div><div class="kpi-value" id="batchValidRows">-</div></div>
+        <div class="batch-kpi"><div class="kpi-label" data-i18n="batchHighRiskCount">High Risk Count</div><div class="kpi-value" id="batchHighRiskCount">-</div></div>
       </div>
-
-      <div class="batch-middle">
-        <div class="batch-chart-box">
-          <div class="chart-title">Risk Distribution</div>
-          <div class="donut-wrap">
-            <svg class="donut" viewBox="0 0 42 42" aria-hidden="true">
-              <circle class="donut-bg" cx="21" cy="21" r="15.9155"></circle>
-              <circle id="donutHigh" class="donut-ring high" cx="21" cy="21" r="15.9155" stroke-dasharray="0 100" stroke-dashoffset="25"></circle>
-              <circle id="donutMed" class="donut-ring med" cx="21" cy="21" r="15.9155" stroke-dasharray="0 100" stroke-dashoffset="25"></circle>
-              <circle id="donutLow" class="donut-ring low" cx="21" cy="21" r="15.9155" stroke-dasharray="0 100" stroke-dashoffset="25"></circle>
-            </svg>
-            <div class="donut-center" id="donutCenterText">-</div>
-            <ul class="chart-legend">
-              <li><span class="swatch high"></span> High <b id="legendHigh">-</b></li>
-              <li><span class="swatch med"></span> Medium <b id="legendMed">-</b></li>
-              <li><span class="swatch low"></span> Low <b id="legendLow">-</b></li>
-            </ul>
-          </div>
+      <div class="batch-viz-row">
+        <div class="donut-wrap">
+          <div class="donut" id="batchRiskDonut"><span id="batchRiskDonutCenter">-</span></div>
+          <div class="donut-caption" id="batchRiskDonutCaption">-</div>
         </div>
-
-        <div class="batch-chart-box">
-          <div class="chart-title">Top Risk Students</div>
-          <div id="batchTopRiskBars" class="toprisk-bars"><span class="muted-note">-</span></div>
+        <div class="risk-legend" id="batchRiskLegend">-</div>
+        <div class="toprisk-bars">
+          <div class="mini-title" data-i18n="topRiskStudents">Top Risk Students</div>
+          <div id="batchTopRiskBars">-</div>
         </div>
       </div>
-
-      <div class="batch-meta-grid">
-        <div><span>Invalid Rows</span><strong id="batchInvalidRows">-</strong></div>
-        <div><span>At-risk Rate</span><strong id="batchAtRiskRate">-</strong></div>
-        <div><span>Avg Dropout Prob</span><strong id="batchAvgRisk">-</strong></div>
-        <div><span>Avg Reading</span><strong id="batchAvgReading">-</strong></div>
-        <div><span>Policies Simulated</span><strong id="batchPolicies">-</strong></div>
+      <div class="batch-mini-kpis">
+        <div class="mini-kpi"><span class="mini-label" data-i18n="batchInvalidRows">Invalid Rows</span><strong id="batchInvalidRows">-</strong></div>
+        <div class="mini-kpi"><span class="mini-label" data-i18n="batchAtRiskRate">At-risk Rate</span><strong id="batchAtRiskRate">-</strong></div>
+        <div class="mini-kpi"><span class="mini-label" data-i18n="batchAvgDropout">Avg Dropout Prob</span><strong id="batchAvgRisk">-</strong></div>
+        <div class="mini-kpi"><span class="mini-label" data-i18n="batchAvgReading">Avg Reading</span><strong id="batchAvgReading">-</strong></div>
+        <div class="mini-kpi optional-batch-metric"><span class="mini-label" data-i18n="batchAvgMath">Avg Math</span><strong id="batchAvgMath">-</strong></div>
+        <div class="mini-kpi optional-batch-metric"><span class="mini-label" data-i18n="batchAvgScore">Avg Score</span><strong id="batchAvgScore">-</strong></div>
+        <div class="mini-kpi optional-batch-metric"><span class="mini-label" data-i18n="batchAvgRiskChange">Avg Risk Change</span><strong id="batchAvgRiskChange">-</strong></div>
+        <div class="mini-kpi"><span class="mini-label" data-i18n="batchAvgReadingChange">Avg Reading Change</span><strong id="batchAvgReadingChange">-</strong></div>
+        <div class="mini-kpi optional-batch-metric"><span class="mini-label" data-i18n="batchAvgMathChange">Avg Math Change</span><strong id="batchAvgMathChange">-</strong></div>
+        <div class="mini-kpi"><span class="mini-label" data-i18n="batchPoliciesSimulated">Policies Simulated</span><strong id="batchPolicies">-</strong></div>
       </div>
-
-      <div class="batch-toprisk-wrap">
-        <h4>Top Risk Students (preview)</h4>
-        <div class="batch-table-wrap muted-note" id="batchTopRiskTable">-</div>
+      <div class="batch-table-panel">
+        <div class="mini-title" data-i18n="topRiskPreview">Top Risk Students (preview)</div>
+        <div class="batch-table-wrap" id="batchTopRiskTable">-</div>
       </div>
-    </section>
-
-    <aside class="batch-result-card">
-      <div class="tabs">
-        <button class="tab active" data-tab="pretty">Pretty Result</button>
-        <button class="tab" data-tab="raw">Raw JSON</button>
+    </div>
+    <div class="batch-strip-col batch-strip-output">
+      <div class="tabs-card">
+        <div class="tabs"><button class="tab active" data-tab="pretty" data-i18n="prettyTab">Pretty Result</button><button class="tab" data-tab="raw" data-i18n="rawTab">Raw JSON</button></div>
+        <div class="pretty-output" id="prettyOutput">กดปุ่มด้านซ้ายเพื่อเริ่มคาดการณ์</div>
+        <pre class="raw-output hidden" id="rawOutput">{}</pre>
+        <button class="btn btn-outline download-btn" id="btnDownloadCsv" disabled><span data-i18n="downloadCsv">Download Report (CSV)</span></button>
       </div>
-      <div class="pretty-output" id="prettyOutput">กดปุ่ม Analyze File เพื่อเริ่มวิเคราะห์ข้อมูลหลายรายการ</div>
-      <pre class="raw-output hidden" id="rawOutput">{}</pre>
-    </aside>
+    </div>
   </div>
 </section>
 </main>
